@@ -186,6 +186,14 @@ test('`cwd` option overrides `projectName` option', t => {
 	del.sync(conf.path, {force: true});
 });
 
+test('`suffix` option overrides default suffix', t => {
+	const conf = new Conf({suffix: 'my-suffix'});
+	conf.set('foo', fixture);
+	t.is(conf.get('foo'), fixture);
+	t.true(conf.path.includes('my-suffix'));
+	del.sync(conf.path, {force: true});
+});
+
 test('safely handle missing package.json', t => {
 	const pkgUpSyncOrig = pkgUp.sync;
 	pkgUp.sync = () => null;

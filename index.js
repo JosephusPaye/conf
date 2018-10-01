@@ -36,7 +36,7 @@ class Conf {
 		}, options);
 
 		if (!options.cwd) {
-			options.cwd = envPaths(options.projectName).config;
+			options.cwd = envPaths(options.projectName, {suffix: options.suffix}).config;
 		}
 
 		this.events = new EventEmitter();
@@ -47,8 +47,12 @@ class Conf {
 		const store = Object.assign(plainObject(), options.defaults, fileStore);
 		try {
 			assert.deepEqual(fileStore, store);
-		} catch (e) {
+		} catch (error) {
 			this.store = store;
+		}
+
+		if (options.watch) {
+			this.watch();
 		}
 	}
 
@@ -138,7 +142,7 @@ class Conf {
 			return Object.assign(plainObject(), JSON.parse(data));
 		} catch (error) {
 			if (error.code === 'ENOENT') {
-				makeDir.sync(path.dirname(this.path));
+				this.createDir();
 				return plainObject();
 			}
 
@@ -151,8 +155,7 @@ class Conf {
 	}
 
 	set store(value) {
-		// Ensure the directory exists as it could have been deleted in the meantime
-		makeDir.sync(path.dirname(this.path));
+		this.createDir();
 
 		let data = JSON.stringify(value, null, '\t');
 
@@ -163,6 +166,29 @@ class Conf {
 
 		writeFileAtomic.sync(this.path, data);
 		this.events.emit('change');
+	}
+
+	createDir() {
+		// Ensure the directory exists as it could have been deleted in the meantime
+		makeDir.sync(path.dirname(this.path));
+	}
+
+	watch() {
+		this.createDir();
+
+		let wait = false;
+
+		fs.watch(path.dirname(this.path), {encoding: this.encryptionKey ? null : 'utf8'}, () => {
+			if (wait) {
+				return;
+			}
+
+			wait = setTimeout(() => {
+				wait = false;
+			}, 100);
+
+			this.events.emit('change');
+		});
 	}
 
 	// TODO: Use `Object.entries()` when targeting Node.js 8
